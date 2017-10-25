@@ -1,0 +1,255 @@
+---
+title: "R Notebook"
+output:
+  html_document: default
+  html_notebook: default
+---
+```{r, echo=F}
+library(doParallel)
+
+```
+
+#Problem 1
+
+If you are reading this, then the new Github repository was successfully created.
+
+
+
+#Problem 2
+
+For this problem, I will first use the for loop created in the previous homework, then I will use the vector operations to do the same computation.  After doing this, I will try to make the for loop run faster by using dopar then parSapply.
+
+
+##Part A
+```{r}
+    #generate the data
+    set.seed(12345)
+    y <- rnorm(1e+07, mean = 1, sd = 1)
+    
+    ##Part a: for loop
+    SST <- 0
+    t1 <- system.time({
+        y_bar <- mean(y)
+        for(i in 1:1e7){
+            SST <- SST + (y[i]-y_bar)^2
+        }
+    })
+
+
+```
+
+
+Utilizing the for loop by itself, my for loop ran in 1.75 seconds.  Next, I will test it out with vector operations.
+
+
+
+##Part B
+```{r}
+#Compute SST using vector operations
+  SST <- 0
+    t2 <- system.time({
+        y_bar <- mean(y)
+        SST <- t(y-y_bar) %*% (y-y_bar)
+    })
+```
+
+
+Using the vector operations, my solution was computed in 0.31 seconds.  Now let's see if the for loop can catch u to the vector operations.
+
+
+
+
+##Part C
+```{r, echo=F, eval=F}
+library(foreach)
+
+
+    set.seed(12345)
+    y <- rnorm(1e+07, mean = 1, sd = 1)
+    n <- length(y)
+    
+#Part C
+c1 <- makeCluster(2)  
+registerDoParallel(c1)
+system.time({
+    SS1 <- foreach(i = 1:n, .combine = "+") %dopar%  {(y[i] - y_bar)^2}
+})
+
+stopCluster(c1)
+
+
+
+```
+
+
+Using the parallel function dopar didn't seem to speed things up.  The time was actually slower for this one. Next, I will use the parSapply function to see how 
+
+
+
+##Part D
+```{r, echo=F, eval=F}
+
+    set.seed(12345)
+    y <- rnorm(1e+07, mean = 1, sd = 1)
+    n <- length(y)
+#Part D
+sumFun <- function(y) {((y - y_bar)^2)}
+
+cluster2 <- makeCluster(2); registerDoParallel(cluster2)
+clusterExport(cluster2, c("sumFun", "y_bar"))
+system.time({SS2 <- sum(parSapply(cluster2, 1:n, function(y) sumFun(y)))
+    
+})
+stopCluster(cluster2)
+
+
+```
+
+Using the parSapply function, the time was reduced to 0.1 second. 
+
+
+
+#Problem 3
+```{r, echo=F}
+
+#For this problem, the code comes from the solution provided to HW6.  
+
+    #generate the data
+    set.seed(1256)
+    theta <- as.matrix(c(1,2), nrow =2)
+    X <- cbind(1, rep(1:10,10))
+    h <- X %*% theta + rnorm(100,0,0.2)
+    
+    theta0_current <- 0
+    theta0_new <- 1
+    theta1_current <- 0
+    theta1_new <- 1
+    alpha <- 0.0001
+    tolerance <- 0.000001
+    m <- length(h)
+    
+    #could probably do better by:
+        #a. do both updates in the same loop OR
+        #b. use the new theta0 in the theta1 loop
+    t4 <- system.time({
+    while(abs(theta0_new-theta0_current)>tolerance & 
+          abs(theta1_new-theta1_current)>tolerance){
+            theta0_current <- theta0_new
+            theta1_current <- theta1_new
+            theta0_grad <- 0
+            for(i in 1:m){
+                theta0_grad <- theta0_grad + theta0_current + 
+                    theta1_current * X[i,2] - h[i]
+            }
+            theta0_new <- theta0_current - alpha/m * theta0_grad
+            theta1_grad <- 0
+            for(i in 1:m){
+                theta1_grad <- theta1_grad + 
+                    theta0_current + (theta1_current * X[i,2] - h[i])*X[i,2]
+            }
+                
+            theta1_new <- theta1_current - alpha/m*theta1_grad
+          }
+    })
+
+
+```
+
+
+It would be possible to parallelize the matrix operations to make these calculations faster. I also imagine there is probability a parallel apply function that could do these computations much more quickly, but I'm not sure which one it would be.
+
+
+```{r, echo=F}
+
+    #generate the data
+    set.seed(1256)
+    theta <- as.matrix(c(1,2), nrow =2)
+    X <- cbind(1, rep(1:10,10))
+    h <- X %*% theta + rnorm(100,0,0.2)
+    
+    theta_current <- as.matrix(c(0,0), nrow =2)
+    theta_new <- as.matrix(c(1,1), nrow =2)
+    alpha <- 0.0001
+    tolerance <- 0.000001
+    m <- length(h)
+    
+    tX <- t(X)
+    t5 <- system.time({
+    while(sum(abs(theta_new-theta_current)>tolerance)){
+            theta_current <- theta_new
+            theta_grad <- tX %*% ((X %*% theta_current) - h)
+            theta_new <- theta_current - alpha/m * theta_grad
+    }
+    })
+
+
+```
+
+
+
+
+
+
+#Problem 4
+```{r, echo=F}
+# given data
+n <- 200
+X <- 1/cbind(1, rt(n, df = 1), rt(n, df = 1), rt(n, df = 1))
+beta <- c(1, 2, 3, 0)
+Y <- X %*% beta + rnorm(100, sd = 3)
+
+# Bootstrap sample without parallelization
+B <- 10000
+q <- length(beta)
+betaBoot <- matrix(0, nrow = B, ncol=q)   # initialize matrix of zeros to hold sample
+indexBoot <- matrix(0, B, 1)
+
+system.time({
+for (b in 1:B) {
+indexBoot <- sample(1:n, n, replace = T)
+XBoot <- X[indexBoot,]
+YBoot <- Y[indexBoot,]
+betaBoot <- coef(lm(YBoot ~ XBoot))  # Now for beta estimates
+}
+})
+```
+
+
+Using this Bootstrap solution provides a time of around 20 seconds.
+
+```{r, echo=F}
+
+#Repeat with the same data but parallelizing the process to three cores
+n <- 200
+X <- 1/cbind(1, rt(n, df = 1), rt(n, df = 1), rt(n, df = 1))
+beta <- c(1, 2, 3, 0)
+Y <- X %*% beta + rnorm(100, sd = 3)
+
+B <- 10000
+q <- length(beta)
+betaBoot <- matrix(0, nrow = B, ncol=q)   
+indexBoot <- matrix(0, B, 1)
+
+cluster7 <- makeCluster(3)
+registerDoParallel(cluster7)
+
+system.time({
+foreach(b = 1:B) %dopar% {
+    indexBoot <- sample(1:n, n, replace = T)
+    XBoot <- X[indexBoot,]
+    YBoot <- Y[indexBoot,]
+betaBoot <- coef(lm(YBoot ~ XBoot))  # Now for beta estimates
+}
+})
+stopCluster(cluster7)
+
+
+
+```
+
+
+Utilizing dopar for this function increased the speed by about 25%.  It went from about 20 seconds to about 15 seconds.  Given a computer with more cores, I'm sure this could be even faster.
+
+#Problem 5
+If you are reading this, then this problem was completed successfully.
+```
