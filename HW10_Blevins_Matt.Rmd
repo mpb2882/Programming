@@ -1,0 +1,36 @@
+---
+title: "Video Game Console Sales Dashboard"
+output: 
+  flexdashboard::flex_dashboard:
+    orientation: columns
+    vertical_layout: fill
+---
+
+```{r setup, include=FALSE}
+library(flexdashboard)
+```
+
+Column {data-width=650}
+-----------------------------------------------------------------------
+
+### Chart A
+This graph is where I plan to include the interactive graph.  I would like to make this an interactive graph that incorporates sales data and stock price together to see if a correlation between these two categories is noticeable.  I plan to have a drop down menu allowing the user to switch between each console
+```{r}
+
+```
+
+Column {data-width=350}
+-----------------------------------------------------------------------
+
+### Chart B
+This is where the chart of the most recent 8 months of sales data for each console will be graphed.  I plan on graphing the data with all three consoles on the same line chart.
+```{r}
+
+```
+
+### Chart C
+This is where the chart of the total lifetime sales of each console will be graphed.  This will be a bar graph of the three major consoles currently in production.
+```{r}
+
+```
+
